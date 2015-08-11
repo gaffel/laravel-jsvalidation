@@ -12,7 +12,7 @@ trait JavascriptRules
      *
      * @return array
      */
-    abstract public function getRules();
+    //abstract public function getRules();
 
     /**
      * Get the displayable name of the value.
@@ -22,7 +22,7 @@ trait JavascriptRules
      *
      * @return string
      */
-    abstract public function getDisplayableValue($attribute, $value);
+    //abstract public function getDisplayableValue($attribute, $value);
 
     /**
      * Get the displayable name of the attribute.
@@ -31,7 +31,7 @@ trait JavascriptRules
      *
      * @return string
      */
-    abstract protected function getAttribute($attribute);
+    //abstract protected function getAttribute($attribute);
 
     /**
      * Replace javascript error message place-holders in RequiredIf with actual values.

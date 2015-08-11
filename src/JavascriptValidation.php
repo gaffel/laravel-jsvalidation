@@ -2,45 +2,42 @@
 
 namespace Proengsoft\JsValidation;
 
-use Illuminate\Validation\Validator as BaseValidator;
-use Proengsoft\JsValidation\Traits\RemoteValidation;
-use Proengsoft\JsValidation\Traits\JavascriptRules;
 
-/**
- * Extends Laravel Validator to add Javascript Validations.
- *
- * Class Validator
- */
-class Validator extends BaseValidator
+use Illuminate\Validation\Validator;
+use Proengsoft\JsValidation\Traits\ValidatorMethods;
+
+class JavascriptValidation
 {
-    use JavascriptRules,RemoteValidation;
-
-    protected $validator;
+    use ValidatorMethods;
 
     const JSVALIDATION_DISABLE = 'NoJsValidation';
 
     /**
-     * Determine if the data passes the validation rules.
-     *
-     * @return bool
+     * @var Validator
      */
-    public function passes()
-    {
-        if ($this->isRemoteValidationRequest()) {
-            return $this->validateJsRemoteRequest($this->data['_jsvalidation'], [$this, 'parent::passes']);
-        }
+    protected $validator;
 
-        return parent::passes();
+    /**
+     * @param Validator $validator
+     */
+    public function __construct( $validator) {
+        $this->rules = $validator->getRules();
+        $this->validator = $validator;
     }
 
     /**
-     * Disable Javascript Validations for some attribute.
+     * Returns view data to render javascript.
      *
-     * @return bool
+     * @return array
      */
-    public function validateNoJsValidation()
+    public function validationData()
     {
-        return true;
+        $jsValidations = $this->generateJavascriptValidations();
+
+        return [
+            'rules' => $jsValidations,
+            'messages' => array(),
+        ];
     }
 
     /**
@@ -48,12 +45,15 @@ class Validator extends BaseValidator
      *
      * @return array
      */
-    protected function generateJavascriptValidations()
+    public function generateJavascriptValidations()
     {
         // Check if JS Validation is disabled for this attribute
 
         $vAttributes = array_filter(array_keys($this->rules), [$this, 'jsValidationEnabled']);
         $vRules = array_intersect_key($this->rules, array_flip($vAttributes));
+
+        $messages=$this->getJsMessages($vRules);
+        dd($messages);
 
         // Convert each rules and messages
         $convertedRules = array_map([$this, 'jsConvertRules'], array_keys($vRules), $vRules);
@@ -61,6 +61,7 @@ class Validator extends BaseValidator
         $convertedRules = array_filter($convertedRules, function ($value) {
             return !empty($value['rules']);
         });
+
         // Format results
         return array_reduce($convertedRules, function ($result, $item) {
             $attribute = $item['attribute'];
@@ -69,6 +70,18 @@ class Validator extends BaseValidator
             $result[$attribute] = array_merge($result[$attribute], $rule);
             return $result;
         }, array());
+    }
+
+    /**
+     * Check if JS Validation is disabled for attribute.
+     *
+     * @param $attribute
+     *
+     * @return bool
+     */
+    public function jsValidationEnabled($attribute)
+    {
+        return !$this->hasRule($attribute, self::JSVALIDATION_DISABLE);
     }
 
     /**
@@ -84,6 +97,7 @@ class Validator extends BaseValidator
         $jsRules = [];
         $jsAttribute = $attribute;
 
+
         foreach ($rules as $rawRule) {
             list($rule, $parameters) = $this->parseRule($rawRule);
             list($jsAttribute, $jsRule, $jsParams) = $this->getJsRule($attribute, $rule, $parameters);
@@ -91,7 +105,7 @@ class Validator extends BaseValidator
                 $jsRules[$jsRule][] = array(
                     $rule, $jsParams,
                     $this->getJsMessage($attribute, $rule, $parameters),
-                    $this->isImplicit($rule),
+                    false, //$this->isImplicit($rule),
                 );
             }
         }
@@ -116,17 +130,44 @@ class Validator extends BaseValidator
         $method = "jsRule{$rule}";
         $jsRule = false;
 
+        /*
         if ($this->isRemoteRule($rule)) {
             list($attribute, $parameters) = $this->jsRemoteRule($attribute);
             $jsRule = 'laravelValidationRemote';
-        } elseif (method_exists($this, $method)) {
+        } else
+        */
+        if (method_exists($this, $method)) {
             list($attribute, $parameters) = $this->$method($attribute, $parameters);
             $jsRule = 'laravelValidation';
-        } elseif (method_exists($this, "validate{$rule}")) {
+        } elseif (method_exists($this->validator, "validate{$rule}")) {
             $jsRule = 'laravelValidation';
         }
 
         return [$attribute, $jsRule, $parameters];
+    }
+
+    function getJsMessages($rules) {
+
+        $newRules=[];
+        $newData=[];
+        foreach ($rules as $i=>$rule) {
+            $newData[$i]="fake";
+            $rule=(array) $rule;
+            foreach ($rule as $value) {
+                $newRules[$i][]='jsvalidation_'.$value;
+                list($ruleName) = $this->parseRule($value);
+                $ruleName=snake_case($ruleName);
+                $this->validator->addExtension('jsvalidation_'.$ruleName,function(){return false;});
+            }
+            //$rules[$i]='jsvalidation_'.snake_case($rule);
+
+        }
+        //dd($newRules);
+        $this->validator->setRules($newRules);
+        $this->validator->setData($newData);
+        dd($this->validator->messages());
+
+        return [];
     }
 
     /**
@@ -140,6 +181,9 @@ class Validator extends BaseValidator
      */
     protected function getJsMessage($attribute, $rule, $parameters)
     {
+
+        dd($rule);
+
         $message = $this->getTypeMessage($attribute, $rule);
 
         if (isset($this->replacers[snake_case($rule)])) {
@@ -178,33 +222,8 @@ class Validator extends BaseValidator
         return $message;
     }
 
-    /**
-     * Check if JS Validation is disabled for attribute.
-     *
-     * @param $attribute
-     *
-     * @return bool
-     */
-    public function jsValidationEnabled($attribute)
-    {
-        return !$this->hasRule($attribute, self::JSVALIDATION_DISABLE);
-    }
 
-    /**
-     * Returns view data to render javascript.
-     *
-     * @return array
-     */
-    public function validationData()
-    {
-        $jsMessages = array();
-        $jsValidations = $this->generateJavascriptValidations();
 
-        return [
-            'rules' => $jsValidations,
-            'messages' => $jsMessages,
-        ];
-    }
 
 
 }

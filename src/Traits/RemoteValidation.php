@@ -13,35 +13,35 @@ trait RemoteValidation
      *
      * @return array
      */
-    abstract public function getData();
+    //abstract public function getData();
 
     /**
      * Set the data under validation.
      *
      * @param array $data
      */
-    abstract public function setData(array $data);
+    //abstract public function setData(array $data);
 
     /**
      * Get the message container for the validator.
      *
      * @return \Illuminate\Support\MessageBag
      */
-    abstract public function messages();
+    //abstract public function messages();
 
     /**
      * Get the array of custom validator extensions.
      *
      * @return array
      */
-    abstract public function getExtensions();
+    //abstract public function getExtensions();
 
     /**
      * Get the validation rules.
      *
      * @return array
      */
-    abstract public function getRules();
+    //abstract public function getRules();
 
     /**
      * Set the validation rules.
@@ -50,7 +50,7 @@ trait RemoteValidation
      *
      * @return $this
      */
-    abstract public function setRules(array $rules);
+    //abstract public function setRules(array $rules);
 
     /**
      * Extract the rule name and parameters from a rule.
@@ -59,7 +59,7 @@ trait RemoteValidation
      *
      * @return array
      */
-    abstract protected function parseRule($rules);
+    //abstract protected function parseRule($rules);
 
     /**
      * Return parsed Javascript Rule.
@@ -70,7 +70,7 @@ trait RemoteValidation
      *
      * @return array
      */
-    abstract protected function getJsRule($attribute, $rule, $parameters);
+    //abstract protected function getJsRule($attribute, $rule, $parameters);
 
     /**
      * Validate remote Javascript Validations.
