@@ -80,12 +80,8 @@ class ValidatorProxy implements ValidatorContract
 
         $jsMessages = array();
         $va=new JavascriptValidation($this->validator);
-        $jsValidations = $va->generateJavascriptValidations();
+        return $va->validations();
 
-        return [
-            'rules' => $jsValidations,
-            'messages' => $jsMessages,
-        ];
     }
 
 

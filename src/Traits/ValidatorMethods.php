@@ -7,11 +7,53 @@ use Closure;
 trait ValidatorMethods
 {
     /**
+     * The Translator implementation.
+     *
+     * @var \Symfony\Component\Translation\TranslatorInterface
+     */
+    protected $translator;
+
+    /**
+     * The array of custom error messages.
+     *
+     * @var array
+     */
+    protected $customMessages = array();
+
+    /**
+     * The array of fallback error messages.
+     *
+     * @var array
+     */
+
+    protected $fallbackMessages = array();
+    /**
      * Validation rules
      *
      * @var array
      */
     protected $rules = array();
+
+    /**
+     * The files under validation.
+     *
+     * @var array
+     */
+    protected $files = array();
+
+    /**
+     * The size related validation rules.
+     *
+     * @var array
+     */
+    protected $sizeRules = array('Size', 'Between', 'Min', 'Max');
+
+    /**
+     * The numeric related validation rules.
+     *
+     * @var array
+     */
+    protected $numericRules = array('Numeric', 'Integer');
 
     /**
      * Get the validation rules.
@@ -46,7 +88,7 @@ trait ValidatorMethods
     {
         if ( ! array_key_exists($attribute, $this->rules))
         {
-            return null;
+            return;
         }
 
         $rules = (array) $rules;
@@ -123,22 +165,6 @@ trait ValidatorMethods
         return str_getcsv($parameter);
     }
 
-    /**
-     * Add an error message to the validator's collection of messages.
-     *
-     * @param  string  $attribute
-     * @param  string  $rule
-     * @param  array   $parameters
-     * @return void
-     */
-    protected function addError($attribute, $rule, $parameters)
-    {
-        $message = $this->getMessage($attribute, $rule);
-
-        $message = $this->doReplacements($message, $attribute, $rule, $parameters);
-
-        $this->messages->add($attribute, $message);
-    }
 
     /**
      * Get the validation message for an attribute and rule.
@@ -147,7 +173,7 @@ trait ValidatorMethods
      * @param  string  $rule
      * @return string
      */
-    protected function getMessage($attribute, $rule)
+    protected function ___getMessage($attribute, $rule)
     {
         $lowerRule = snake_case($rule);
 
@@ -267,101 +293,6 @@ trait ValidatorMethods
         return 'string';
     }
 
-    /**
-     * Replace all error message place-holders with actual values.
-     *
-     * @param  string  $message
-     * @param  string  $attribute
-     * @param  string  $rule
-     * @param  array   $parameters
-     * @return string
-     */
-    protected function doReplacements($message, $attribute, $rule, $parameters)
-    {
-        $message = str_replace(':attribute', $this->getAttribute($attribute), $message);
 
-        if (isset($this->replacers[snake_case($rule)]))
-        {
-            $message = $this->callReplacer($message, $attribute, snake_case($rule), $parameters);
-        }
-        elseif (method_exists($this, $replacer = "replace{$rule}"))
-        {
-            $message = $this->$replacer($message, $attribute, $rule, $parameters);
-        }
-
-        return $message;
-    }
-
-    /**
-     * Get the displayable name of the attribute.
-     *
-     * @param  string  $attribute
-     * @return string
-     */
-    protected function getAttribute($attribute)
-    {
-        // The developer may dynamically specify the array of custom attributes
-        // on this Validator instance. If the attribute exists in this array
-        // it takes precedence over all other ways we can pull attributes.
-        if (isset($this->customAttributes[$attribute]))
-        {
-            return $this->customAttributes[$attribute];
-        }
-
-        $key = "validation.attributes.{$attribute}";
-
-        // We allow for the developer to specify language lines for each of the
-        // attributes allowing for more displayable counterparts of each of
-        // the attributes. This provides the ability for simple formats.
-        if (($line = $this->translator->trans($key)) !== $key)
-        {
-            return $line;
-        }
-
-        // If no language line has been specified for the attribute all of the
-        // underscores are removed from the attribute name and that will be
-        // used as default versions of the attribute's displayable names.
-        return str_replace('_', ' ', snake_case($attribute));
-    }
-
-    /**
-     * Call a custom validator message replacer.
-     *
-     * @param  string  $message
-     * @param  string  $attribute
-     * @param  string  $rule
-     * @param  array   $parameters
-     * @return string
-     */
-    protected function callReplacer($message, $attribute, $rule, $parameters)
-    {
-        $callback = $this->replacers[$rule];
-
-        if ($callback instanceof Closure)
-        {
-            return call_user_func_array($callback, func_get_args());
-        }
-        elseif (is_string($callback))
-        {
-            return $this->callClassBasedReplacer($callback, $message, $attribute, $rule, $parameters);
-        }
-    }
-
-    /**
-     * Call a class based validator message replacer.
-     *
-     * @param  string  $callback
-     * @param  string  $message
-     * @param  string  $attribute
-     * @param  string  $rule
-     * @param  array   $parameters
-     * @return string
-     */
-    protected function callClassBasedReplacer($callback, $message, $attribute, $rule, $parameters)
-    {
-        list($class, $method) = explode('@', $callback);
-
-        return call_user_func_array(array($this->container->make($class), $method), array_slice(func_get_args(), 1));
-    }
 
 }

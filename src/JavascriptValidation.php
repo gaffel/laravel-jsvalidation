@@ -5,6 +5,9 @@ namespace Proengsoft\JsValidation;
 
 use Illuminate\Validation\Validator;
 use Proengsoft\JsValidation\Traits\ValidatorMethods;
+use Symfony\Component\HttpFoundation\File\File;
+use ReflectionMethod;
+use ReflectionProperty;
 
 class JavascriptValidation
 {
@@ -21,7 +24,12 @@ class JavascriptValidation
      * @param Validator $validator
      */
     public function __construct( $validator) {
+
         $this->rules = $validator->getRules();
+        $this->translator = $validator->getTranslator();
+        $this->customMessages = $validator->getCustomMessages();
+        $this->fallbackMessages = $validator->getFallbackMessages();
+
         $this->validator = $validator;
     }
 
@@ -30,9 +38,9 @@ class JavascriptValidation
      *
      * @return array
      */
-    public function validationData()
+    public function validations()
     {
-        $jsValidations = $this->generateJavascriptValidations();
+        $jsValidations = $this->generateValidations();
 
         return [
             'rules' => $jsValidations,
@@ -45,7 +53,7 @@ class JavascriptValidation
      *
      * @return array
      */
-    public function generateJavascriptValidations()
+    protected function generateValidations()
     {
         // Check if JS Validation is disabled for this attribute
 
@@ -104,7 +112,7 @@ class JavascriptValidation
             if ($jsRule) {
                 $jsRules[$jsRule][] = array(
                     $rule, $jsParams,
-                    $this->getJsMessage($attribute, $rule, $parameters),
+                    $this->getMessage($attribute, $rule, $parameters),
                     false, //$this->isImplicit($rule),
                 );
             }
@@ -150,21 +158,40 @@ class JavascriptValidation
 
         $newRules=[];
         $newData=[];
-        foreach ($rules as $i=>$rule) {
-            $newData[$i]="fake";
+        $customMessages=[];
+        $messages=[];
+        foreach ($rules as $attribute=>$rule) {
+            $newData[$attribute]="";
             $rule=(array) $rule;
             foreach ($rule as $value) {
-                $newRules[$i][]='jsvalidation_'.$value;
-                list($ruleName) = $this->parseRule($value);
-                $ruleName=snake_case($ruleName);
-                $this->validator->addExtension('jsvalidation_'.$ruleName,function(){return false;});
+                $newRules[$attribute][]='jsvalidation_'.$value;
+                list($ruleName, $parameters) = $this->parseRule($value);
+                $messages[$attribute][$ruleName]=$this->getMessage($attribute,$ruleName, $parameters);
+
+                /*
+                $newRule=snake_case($ruleName);
+                $this->validator->addImplicitExtension('jsvalidation_'.$newRule,function(){return false;});
+                $validator=$this->validator;
+                $method = new ReflectionMethod($validator, "doReplacements");
+                $method->setAccessible(true);
+
+                $this->validator->addReplacer('jsvalidation_'.$newRule,function($message, $attribute, $rule, $parameters) use ($ruleName, $validator, $method)  {
+                        $rule=studly_case(preg_replace('/^jsvalidation_/','',$rule));
+                        return $method->invokeArgs($validator, [$message, $attribute, $rule, $parameters]);
+
+                });
+
+                $customMessages["{$attribute}.jsvalidation_{$newRule}"]=$this->getMessage($attribute,$ruleName);
+                */
             }
             //$rules[$i]='jsvalidation_'.snake_case($rule);
 
         }
-        //dd($newRules);
+        dd($messages);
+        //dd($customMessages);
         $this->validator->setRules($newRules);
         $this->validator->setData($newData);
+        $this->validator->setCustomMessages($customMessages);
         dd($this->validator->messages());
 
         return [];
@@ -179,8 +206,12 @@ class JavascriptValidation
      *
      * @return mixed
      */
-    protected function getJsMessage($attribute, $rule, $parameters)
+    protected function __getJsMessage($attribute, $rule, $parameters)
     {
+
+
+        $message = $this->getMessage($attribute, $rule);
+
 
         dd($rule);
 
@@ -196,6 +227,34 @@ class JavascriptValidation
         }
 
         return $message;
+    }
+
+    protected function getJsMessage($attribute, $rule, $parameters)
+    {
+        $fakeData = array();
+        $validator=$this->getValidatorInstance();
+        $previousData=$validator->getData();
+
+
+        if ($rule == 'RequiredIf') {
+            $fakeData[$parameters[0]]=$parameters[1];
+        }
+
+
+
+
+        $validator->setData($fakeData);
+
+        $message = $this->getMessage($attribute, $rule, $parameters);
+        $message = $this->doReplacements($message, $attribute, $rule, $parameters);
+
+            //$message = $this->callProtectedMethod($validator,'getMessage',[$attribute, $rule]);
+        //$message = $this->callProtectedMethod($validator,'doReplacements',[$message, $attribute, $rule,$parameters]);
+
+        $validator->setData($previousData);
+
+        return $message;
+
     }
 
     /**
@@ -216,10 +275,112 @@ class JavascriptValidation
             }
         }
 
+
+
         $message = $this->getMessage($attribute, $rule);
         $this->files = $prevFiles;
 
         return $message;
+    }
+
+
+
+
+    public function getValidatorInstance()
+    {
+        return $this->validator;
+    }
+
+
+    public function getSizeRules()
+    {
+        return $this->getProtectedProperty($this->validator,'sizeRules');
+    }
+
+
+    /**
+     * Get the validation message for an attribute and rule.
+     *
+     * @param  string  $attribute
+     * @param  string  $rule
+     * @return string
+     */
+    protected function getMessage($attribute, $rule, $parameters, $type = null)
+    {
+        $message = null;
+        if (in_array($rule, $this->getSizeRules()) && is_null($type)) {
+            $message=$this->getMessage($attribute, $rule, $parameters, 'file');
+        }
+
+        $validator=$this->getValidatorInstance();
+
+        $previousData=$validator->getData();
+        $previousFiles=$validator->getFiles();
+
+        $validator->setData(
+            $this->getFakeData($attribute, $rule, $parameters, $type)
+        );
+
+        $result = $this->callProtectedMethod($this->validator,'getMessage',[$attribute, $rule]);
+        $result = $this->callProtectedMethod($validator,'doReplacements',[$result, $attribute, $rule,$parameters]);
+
+        $validator->setData($previousData);
+        $validator->setFiles($previousFiles);
+
+        return $message? [$result, $message]:$result;
+
+    }
+
+    protected function getFakeData($attribute, $rule, $parameters, $type=null)
+    {
+        if ($rule == 'RequiredIf') {
+            return array($parameters[0]=>$parameters[1]);
+        }
+
+        if ($type === 'file') {
+            return array(
+                $attribute => new File('fake_path',false)
+            );
+        }
+
+        return array();
+    }
+
+
+    /**
+     * Determine if a given rule implies the attribute is required.
+     *
+     * @param  string  $rule
+     * @return bool
+     */
+
+    protected function isImplicit($rule)
+    {
+        return $this->callProtectedMethod($this->validator,'isImplicit',[$rule]);
+    }
+
+
+    private function callProtectedMethod($instance, $methodName, $parameters = null)
+    {
+        $method = new ReflectionMethod($instance, $methodName);
+        $method->setAccessible(true);
+
+        if (is_array($parameters))
+        {
+            return $method->invokeArgs($instance, $parameters);
+        }
+        return $method->invoke($instance);
+
+    }
+
+
+    private function getProtectedProperty($instance, $name)
+    {
+        $property = new ReflectionProperty($instance, $name);
+        $property->setAccessible(true);
+
+        return $property->getValue($instance);
+
     }
 
 
