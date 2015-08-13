@@ -2,9 +2,9 @@
 
 namespace Proengsoft\JsValidation;
 
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Contracts\Foundation\Application;
 use Proengsoft\JsValidation;
 
 class JsValidationServiceProvider extends ServiceProvider
@@ -42,9 +42,9 @@ class JsValidationServiceProvider extends ServiceProvider
             $view = Config::get('jsvalidation.view');
 
             $validator = new Manager($selector, $view);
-            //$validatorFactory = $app->make('Illuminate\Contracts\Validation\Factory');
-           // dd($validatorFactory);
-            return new Factory($validator, $app);
+            $validatorFactory = $app->make('Illuminate\Contracts\Validation\Factory');
+
+            return new Factory($validatorFactory, $validator, $app);
         });
     }
 
