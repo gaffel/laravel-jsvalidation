@@ -2412,13 +2412,21 @@ $.extend(true, laravelValidation, {
         dependentElement: function(validator, element, name) {
 
             var el=validator.findByName(name);
-            if (el[0]===undefined) {
-                return true;
-            }
-            if ( validator.settings.onfocusout ) {
-                el.off( ".validate-laravelValidation" )
-                    .off("blur.validate-laravelValidation-"+element.name)
-                    .on( "blur.validate-laravelValidation-"+element.name, function() {
+
+            if ( el[0]!==undefined  && validator.settings.onfocusout ) {
+                var event = 'blur';
+                if (el[0].tagName === 'SELECT' ||
+                    el[0].tagName === 'OPTION' ||
+                    el[0].type === 'checkbox' ||
+                    el[0].type === 'radio'
+                ) {
+                    event = 'click';
+                }
+
+                var ruleName = '.validate-laravelValidation';
+                el.off( ruleName )
+                    .off(event + ruleName + '-' + element.name)
+                    .on( event + ruleName + '-' + element.name, function() {
                         $( element ).valid();
                     });
             }
@@ -2965,12 +2973,20 @@ $.extend(true, laravelValidation, {
             var validator=this,
                 required=false;
             var currentObject=this;
+
             $.each(params,function(i,param) {
-                var target=laravelValidation.helpers.dependentElement(currentObject, element, param);
-                var currentValue=currentObject.elementValue(target);
-                required=required ||  target===false
-                    || $.validator.methods.required.call(validator,currentValue,target,true);
+                var target=laravelValidation.helpers.dependentElement(
+                    currentObject, element, param
+                );
+                required=required || (
+                    target!==undefined &&
+                    $.validator.methods.required.call(
+                        validator,
+                        currentObject.elementValue(target),
+                        target,true
+                    ));
             });
+
             if (required) {
                 return  $.validator.methods.required.call(this, value, element, true);
             }
@@ -2985,12 +3001,20 @@ $.extend(true, laravelValidation, {
             var validator=this,
                 required=true;
             var currentObject=this;
+
             $.each(params,function(i,param) {
-                var target=laravelValidation.helpers.dependentElement(currentObject, element, param);
-                var currentValue=currentObject.elementValue(target);
-                required = required &&
-                    (  target===false || $.validator.methods.required.call(validator, currentValue,target,true));
+                var target=laravelValidation.helpers.dependentElement(
+                    currentObject, element, param
+                );
+                required = required && (
+                      target!==undefined &&
+                      $.validator.methods.required.call(
+                          validator,
+                          currentObject.elementValue(target),
+                          target,true
+                      ));
             });
+
             if (required) {
                 return  $.validator.methods.required.call(this, value, element, true);
             }
@@ -3006,12 +3030,20 @@ $.extend(true, laravelValidation, {
             var validator=this,
                 required=false;
             var currentObject=this;
+
             $.each(params,function(i,param) {
-                var target=laravelValidation.helpers.dependentElement(currentObject, element, param);
-                var currentValue=currentObject.elementValue(target);
-                required=required || target===false
-                     || !$.validator.methods.required.call(validator, currentValue,target,true);
+                var target=laravelValidation.helpers.dependentElement(
+                    currentObject, element, param
+                );
+                required = required ||
+                    target===undefined||
+                    !$.validator.methods.required.call(
+                        validator,
+                        currentObject.elementValue(target),
+                        target,true
+                    );
             });
+
             if (required) {
                 return  $.validator.methods.required.call(this, value, element, true);
             }
@@ -3027,12 +3059,20 @@ $.extend(true, laravelValidation, {
             var validator=this,
                 required=true,
                 currentObject=this;
+
             $.each(params,function(i, param) {
-                var target=laravelValidation.helpers.dependentElement(currentObject, element, param);
-                var currentValue=currentObject.elementValue(target);
-                required = required &&
-                    (target===false|| !$.validator.methods.required.call(validator, currentValue,target,true));
+                var target=laravelValidation.helpers.dependentElement(
+                    currentObject, element, param
+                );
+                required = required && (
+                    target===undefined ||
+                    !$.validator.methods.required.call(
+                        validator,
+                        currentObject.elementValue(target),
+                        target,true
+                    ));
             });
+
             if (required) {
                 return  $.validator.methods.required.call(this, value, element, true);
             }
@@ -3047,15 +3087,21 @@ $.extend(true, laravelValidation, {
          */
         RequiredIf: function(value, element, params) {
 
-            var target=laravelValidation.helpers.dependentElement(this, element, params[0]);
-            var val=String(this.elementValue(target));
-            var data=params.slice(1);
+            var target=laravelValidation.helpers.dependentElement(
+                this, element, params[0]
+            );
 
-            if ($.inArray(val,data)!== -1) {
-                return $.validator.methods.required.call(this, value, element, true);
-            } else {
-                return true;
+            if (target!==undefined) {
+                var val=String(this.elementValue(target));
+                var data=params.slice(1);
+                if ($.inArray(val,data)!== -1) {
+                    return $.validator.methods.required.call(
+                        this, value, element, true
+                    );
+                }
             }
+
+            return true;
 
         },
 
@@ -3073,9 +3119,15 @@ $.extend(true, laravelValidation, {
          * @return {boolean}
          */
         Same: function(value, element, params) {
-            var target=laravelValidation.helpers.dependentElement(this, element, params[0]);
-            var targetValue=this.elementValue(target);
-            return String(value) === String(targetValue);
+
+            var target=laravelValidation.helpers.dependentElement(
+                this, element, params[0]
+            );
+
+            if (target!==undefined) {
+                return String(value) === String(this.elementValue(target));
+            }
+            return false;
         },
 
         /**
@@ -3321,6 +3373,9 @@ $.extend(true, laravelValidation, {
             var timeCompare=parseFloat(params);
             if (isNaN(timeCompare)) {
                 var target=laravelValidation.helpers.dependentElement(this, element, params);
+                if (target===undefined) {
+                    return false;
+                }
                 timeCompare= laravelValidation.helpers.parseTime(this.elementValue(target), target);
             }
 
@@ -3337,6 +3392,9 @@ $.extend(true, laravelValidation, {
             var timeCompare=parseFloat(params);
             if (isNaN(timeCompare)) {
                 var target=laravelValidation.helpers.dependentElement(this, element, params);
+                if (target===undefined) {
+                    return false;
+                }
                 timeCompare= laravelValidation.helpers.parseTime(this.elementValue(target), target);
             }
 

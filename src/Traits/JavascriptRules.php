@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Session;
 trait JavascriptRules
 {
     /**
+<<<<<<< HEAD
      * Get the validation rules.
      *
      * @return array
@@ -15,6 +16,8 @@ trait JavascriptRules
     //abstract public function getRules();
 
     /**
+=======
+>>>>>>> develop
      * Get the displayable name of the value.
      *
      * @param string $attribute
@@ -84,7 +87,7 @@ trait JavascriptRules
     protected function jsRuleAfter($attribute, array $parameters)
     {
         if (!($date = strtotime($parameters[0]))) {
-            $date = in_array($parameters[0], array_keys($this->getRules())) ? $parameters[0] : 'false';
+            $date =  $parameters[0];
         }
 
         return [$attribute, [$date]];
@@ -101,7 +104,7 @@ trait JavascriptRules
     protected function jsRuleBefore($attribute, array $parameters)
     {
         if (!($date = strtotime($parameters[0]))) {
-            $date = in_array($parameters[0], array_keys($this->getRules())) ? $parameters[0] : 'false';
+            $date = $parameters[0];
         }
 
         return [$attribute, [$date]];
