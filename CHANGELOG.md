@@ -1,4 +1,17 @@
-## 1.1.1 (2015-8-15)
+## 1.2.0 (2015-08-19)
+
+Features:
+
+ - Automatic update for public Javascript assets
+ - Minor Javascript improvements.
+
+Bugfixes:
+
+ - Issues resolved:
+    - Wrong password confirmed rule convertion. #52
+    - Fix numeric check for min/max validation #54
+
+## 1.1.1 (2015-08-15)
 
 Bugfixes:
 
