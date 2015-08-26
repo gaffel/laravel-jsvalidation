@@ -2181,7 +2181,7 @@ laravelValidation = {
             data['_jsvalidation']= attribute;
             var formMethod = $(validator.currentForm).attr('method');
             if($(validator.currentForm).find('input[name="_method"]').length) {
-                formMethod = $(validator.currentForm).find('input[name="_method"]');
+                formMethod = $(validator.currentForm).find('input[name="_method"]').val();
             }
 
             $.ajax( $.extend( true, {
